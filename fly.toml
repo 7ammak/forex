@@ -18,3 +18,9 @@ primary_region = 'fra'
   memory = '1gb'
   cpus = 1
   memory_mb = 1024
+
+# Persistent SQLite — survives deploys. Volume created via:
+#   flyctl volumes create forex_data --region fra --size 1
+[[mounts]]
+  source = "forex_data"
+  destination = "/var/www/html/database"
