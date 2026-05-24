@@ -1,17 +1,15 @@
 <?php
 
 use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
-use App\Http\Controllers\Admin\DepositController as AdminDepositController;
+use App\Http\Controllers\Admin\FundRequestController as AdminFundRequestController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\TradeController as AdminTradeController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
-use App\Http\Controllers\Admin\WithdrawalController as AdminWithdrawalController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CurrencyPairController;
-use App\Http\Controllers\DepositRequestController;
+use App\Http\Controllers\FundRequestController;
 use App\Http\Controllers\TradeController;
 use App\Http\Controllers\TransactionController;
-use App\Http\Controllers\WithdrawalRequestController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -39,10 +37,12 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // Opening a trade is rate-limited to prevent runaway scripts.
     Route::post('/trades', [TradeController::class, 'store'])->middleware('throttle:30,1');
 
-    // Deposit / withdrawal requests. These only create pending rows — the
-    // ledger is untouched until an admin approves the request.
-    Route::apiResource('deposits', DepositRequestController::class)->only(['index', 'store']);
-    Route::apiResource('withdrawals', WithdrawalRequestController::class)->only(['index', 'store']);
+    // Unified fund-request flow. Users submit a deposit or withdrawal
+    // request here; the ledger is untouched until an admin approves.
+    // Admin role is rejected by the controller — admins use the admin
+    // endpoints below, not this one.
+    Route::get('/fund-requests', [FundRequestController::class, 'index']);
+    Route::post('/fund-requests', [FundRequestController::class, 'store']);
 
     // Ledger transactions (read-only). The only writer is LedgerService.
     Route::get('/transactions', [TransactionController::class, 'index']);
@@ -63,13 +63,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/trades', [AdminTradeController::class, 'index']);
         Route::post('/trades/{trade}/resolve', [AdminTradeController::class, 'resolve']);
 
-        // Deposit / withdrawal approvals
-        Route::get('/deposits', [AdminDepositController::class, 'index']);
-        Route::post('/deposits/{deposit}/approve', [AdminDepositController::class, 'approve']);
-        Route::post('/deposits/{deposit}/reject', [AdminDepositController::class, 'reject']);
-
-        Route::get('/withdrawals', [AdminWithdrawalController::class, 'index']);
-        Route::post('/withdrawals/{withdrawal}/approve', [AdminWithdrawalController::class, 'approve']);
-        Route::post('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject']);
+        // Fund-request approvals (deposits + withdrawals in one queue).
+        Route::get('/fund-requests', [AdminFundRequestController::class, 'index']);
+        Route::post('/fund-requests/{fundRequest}/approve', [AdminFundRequestController::class, 'approve']);
+        Route::post('/fund-requests/{fundRequest}/reject', [AdminFundRequestController::class, 'reject']);
     });
 });

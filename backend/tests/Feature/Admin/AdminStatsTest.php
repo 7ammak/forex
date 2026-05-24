@@ -3,10 +3,9 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\CurrencyPair;
-use App\Models\DepositRequest;
+use App\Models\FundRequest;
 use App\Models\Trade;
 use App\Models\User;
-use App\Models\WithdrawalRequest;
 use App\Services\LedgerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -42,13 +41,13 @@ class AdminStatsTest extends TestCase
             'resolved_by' => $admin->id, // reuse the admin so we don't spawn a new one
         ]);
 
-        DepositRequest::factory()->count(3)->create(['user_id' => $alice->id, 'status' => 'pending']);
-        DepositRequest::factory()->create([
+        FundRequest::factory()->deposit()->count(3)->create(['user_id' => $alice->id, 'status' => 'pending']);
+        FundRequest::factory()->deposit()->create([
             'user_id' => $alice->id,
             'status' => 'approved',
             'reviewed_by' => $admin->id,
         ]);
-        WithdrawalRequest::factory()->count(1)->create(['user_id' => $bob->id, 'status' => 'pending']);
+        FundRequest::factory()->withdrawal()->create(['user_id' => $bob->id, 'status' => 'pending']);
 
         $response = $this->authedAs($admin)->getJson('/api/admin/stats');
 

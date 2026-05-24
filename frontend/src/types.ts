@@ -30,25 +30,20 @@ export interface Transaction {
 }
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
+export type FundRequestType = 'deposit' | 'withdrawal'
 
-export interface DepositRequest {
+export interface FundRequest {
   id: number
   user_id: number
+  type: FundRequestType
   amount: string
   status: RequestStatus
   reviewed_by: number | null
   note: string | null
   created_at: string
-}
-
-export interface WithdrawalRequest {
-  id: number
-  user_id: number
-  amount: string
-  status: RequestStatus
-  reviewed_by: number | null
-  note: string | null
-  created_at: string
+  // Only present on admin /api/admin/fund-requests responses
+  user?: { id: number; name: string; email: string }
+  user_balance?: number
 }
 
 export interface AuditLogEntry {
@@ -81,28 +76,6 @@ export interface AdminTradeRow {
   created_at: string
   user?: { id: number; name: string; email: string }
   currency_pair?: { id: number; symbol: string; base: string; quote: string }
-}
-
-export interface AdminDepositRow {
-  id: number
-  user_id: number
-  amount: string
-  status: 'pending' | 'approved' | 'rejected'
-  reviewed_by: number | null
-  note: string | null
-  created_at: string
-  user?: { id: number; name: string; email: string }
-}
-
-export interface AdminWithdrawalRow {
-  id: number
-  user_id: number
-  amount: string
-  status: 'pending' | 'approved' | 'rejected'
-  reviewed_by: number | null
-  note: string | null
-  created_at: string
-  user?: { id: number; name: string; email: string }
 }
 
 export interface CurrencyPair {

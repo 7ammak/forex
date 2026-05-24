@@ -4,12 +4,12 @@ import { api, extractErrorMessage, extractFieldErrors } from '../lib/api'
 import { formatUSD } from '../lib/format'
 import { useToast } from '../components/Toast'
 import type {
-  DepositRequest,
+  FundRequest,
+  FundRequestType,
   MeResponse,
   RequestStatus,
   Transaction,
   TransactionType,
-  WithdrawalRequest,
 } from '../types'
 
 function formatDate(iso: string): string {
@@ -37,17 +37,14 @@ export default function Wallet() {
       (await api.get<{ data: Transaction[] }>('/transactions')).data.data,
   })
 
-  const depositsQuery = useQuery({
-    queryKey: ['deposits'],
+  const requestsQuery = useQuery({
+    queryKey: ['fund-requests'],
     queryFn: async () =>
-      (await api.get<{ data: DepositRequest[] }>('/deposits')).data.data,
+      (await api.get<{ data: FundRequest[] }>('/fund-requests')).data.data,
   })
 
-  const withdrawalsQuery = useQuery({
-    queryKey: ['withdrawals'],
-    queryFn: async () =>
-      (await api.get<{ data: WithdrawalRequest[] }>('/withdrawals')).data.data,
-  })
+  const deposits = (requestsQuery.data ?? []).filter((r) => r.type === 'deposit')
+  const withdrawals = (requestsQuery.data ?? []).filter((r) => r.type === 'withdrawal')
 
   return (
     <div className="space-y-6">
@@ -74,13 +71,13 @@ export default function Wallet() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RequestForm
-          kind="deposit"
+          type="deposit"
           title="Request a deposit"
           submitLabel="Submit deposit"
           help="An admin will review and approve before funds reach your wallet."
         />
         <RequestForm
-          kind="withdrawal"
+          type="withdrawal"
           title="Request a withdrawal"
           submitLabel="Submit withdrawal"
           help="Available balance must cover the amount when you submit and when an admin approves."
@@ -90,15 +87,15 @@ export default function Wallet() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RequestsList
           title="Past deposit requests"
-          loading={depositsQuery.isLoading}
-          error={depositsQuery.isError ? extractErrorMessage(depositsQuery.error) : null}
-          rows={depositsQuery.data}
+          loading={requestsQuery.isLoading}
+          error={requestsQuery.isError ? extractErrorMessage(requestsQuery.error) : null}
+          rows={deposits}
         />
         <RequestsList
           title="Past withdrawal requests"
-          loading={withdrawalsQuery.isLoading}
-          error={withdrawalsQuery.isError ? extractErrorMessage(withdrawalsQuery.error) : null}
-          rows={withdrawalsQuery.data}
+          loading={requestsQuery.isLoading}
+          error={requestsQuery.isError ? extractErrorMessage(requestsQuery.error) : null}
+          rows={withdrawals}
         />
       </div>
     </div>
@@ -154,7 +151,7 @@ function TransactionsCard({
                 return (
                   <tr key={tx.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-600">{formatDate(tx.created_at)}</td>
-                    <td className="px-4 py-3 text-gray-900">{TYPE_LABELS[tx.type]}</td>
+                    <td className="px-4 py-3 text-gray-900">{TYPE_LABELS[tx.type] ?? tx.type}</td>
                     <td className="px-4 py-3 text-gray-600 hidden md:table-cell truncate max-w-xs">
                       {tx.note ?? ''}
                     </td>
@@ -181,42 +178,36 @@ function TransactionsCard({
 // ---------------- Deposit / Withdrawal forms ----------------
 
 interface RequestFormProps {
-  kind: 'deposit' | 'withdrawal'
+  type: FundRequestType
   title: string
   submitLabel: string
   help: string
 }
 
-function RequestForm({ kind, title, submitLabel, help }: RequestFormProps) {
+function RequestForm({ type, title, submitLabel, help }: RequestFormProps) {
   const queryClient = useQueryClient()
   const toast = useToast()
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
-  const endpoint = kind === 'deposit' ? '/deposits' : '/withdrawals'
-  const queryKey = kind === 'deposit' ? 'deposits' : 'withdrawals'
-
   const submit = useMutation({
-    mutationFn: async (input: { amount: number; note: string | null }) => {
-      const response = await api.post<{ data: DepositRequest | WithdrawalRequest }>(
-        endpoint,
-        input,
-      )
+    mutationFn: async (input: { type: FundRequestType; amount: number; note: string | null }) => {
+      const response = await api.post<{ data: FundRequest }>('/fund-requests', input)
       return response.data.data
     },
     onSuccess: (row) => {
       setAmount('')
       setNote('')
       setFieldErrors({})
-      toast.show(`Submitted ${kind} request for ${formatUSD(Number(row.amount))}.`)
-      queryClient.invalidateQueries({ queryKey: [queryKey] })
+      toast.show(`Submitted ${type} request for ${formatUSD(Number(row.amount))}.`)
+      queryClient.invalidateQueries({ queryKey: ['fund-requests'] })
     },
     onError: (err) => {
       const fields = extractFieldErrors(err)
       setFieldErrors(fields)
       if (Object.keys(fields).length === 0) {
-        toast.show(extractErrorMessage(err, `Could not submit ${kind} request.`), 'error')
+        toast.show(extractErrorMessage(err, `Could not submit ${type} request.`), 'error')
       }
     },
   })
@@ -228,7 +219,7 @@ function RequestForm({ kind, title, submitLabel, help }: RequestFormProps) {
       setFieldErrors({ amount: 'Enter an amount greater than zero.' })
       return
     }
-    submit.mutate({ amount: parsed, note: note.trim() ? note.trim() : null })
+    submit.mutate({ type, amount: parsed, note: note.trim() ? note.trim() : null })
   }
 
   return (
@@ -240,11 +231,11 @@ function RequestForm({ kind, title, submitLabel, help }: RequestFormProps) {
 
       <form onSubmit={handleSubmit} className="space-y-3" noValidate>
         <div>
-          <label htmlFor={`${kind}-amount`} className="block text-sm font-medium text-gray-700">
+          <label htmlFor={`${type}-amount`} className="block text-sm font-medium text-gray-700">
             Amount (USD)
           </label>
           <input
-            id={`${kind}-amount`}
+            id={`${type}-amount`}
             type="number"
             inputMode="decimal"
             min="0.01"
@@ -260,11 +251,11 @@ function RequestForm({ kind, title, submitLabel, help }: RequestFormProps) {
         </div>
 
         <div>
-          <label htmlFor={`${kind}-note`} className="block text-sm font-medium text-gray-700">
+          <label htmlFor={`${type}-note`} className="block text-sm font-medium text-gray-700">
             Note <span className="text-gray-400 font-normal">(optional)</span>
           </label>
           <input
-            id={`${kind}-note`}
+            id={`${type}-note`}
             type="text"
             maxLength={1000}
             value={note}
@@ -294,7 +285,7 @@ interface RequestsListProps {
   title: string
   loading: boolean
   error: string | null
-  rows: Array<DepositRequest | WithdrawalRequest> | undefined
+  rows: FundRequest[]
 }
 
 function RequestsList({ title, loading, error, rows }: RequestsListProps) {
@@ -315,7 +306,7 @@ function RequestsList({ title, loading, error, rows }: RequestsListProps) {
         <div className="p-6 text-sm text-red-600" role="alert">
           {error}
         </div>
-      ) : !rows || rows.length === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="p-8 text-center text-sm text-gray-500">
           No requests yet.
         </div>

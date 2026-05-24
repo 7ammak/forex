@@ -37,6 +37,16 @@ export function AdminRoute() {
   return <Outlet />
 }
 
+/** Routes that only regular users see — admins are bounced to the admin
+ *  console. Used to keep admins out of the fund-request forms. */
+export function UserOnlyRoute() {
+  const { user, loading } = useAuth()
+  if (loading) return <FullScreenLoader />
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role === 'admin') return <Navigate to="/admin/approvals" replace />
+  return <Outlet />
+}
+
 /** "/" redirector: send to dashboard/admin if logged in, else to /login. */
 export function RootRedirect() {
   const { user, loading } = useAuth()

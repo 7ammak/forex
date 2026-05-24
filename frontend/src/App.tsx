@@ -1,6 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
-import { AdminRoute, AuthRoute, PublicRoute, RootRedirect } from './auth/guards'
+import { AdminRoute, AuthRoute, PublicRoute, RootRedirect, UserOnlyRoute } from './auth/guards'
 import AppLayout from './components/AppLayout'
 import LoginPage from './routes/LoginPage'
 import RegisterPage from './routes/RegisterPage'
@@ -32,7 +32,10 @@ export default function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/trade" element={<Trade />} />
               <Route path="/history" element={<History />} />
-              <Route path="/wallet" element={<Wallet />} />
+              {/* Wallet has fund-request forms — admins are bounced away. */}
+              <Route element={<UserOnlyRoute />}>
+                <Route path="/wallet" element={<Wallet />} />
+              </Route>
             </Route>
 
             {/* Admin-only — its own chrome */}
