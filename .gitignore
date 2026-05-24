@@ -1,0 +1,41 @@
+# ---- Backend (Laravel) ----
+/backend/vendor
+/backend/.env
+/backend/.env.backup
+/backend/.env.production
+/backend/.phpunit.result.cache
+/backend/storage/*.key
+/backend/storage/logs/*
+/backend/storage/framework/cache/data/*
+/backend/storage/framework/sessions/*
+/backend/storage/framework/views/*
+/backend/storage/framework/testing/*
+/backend/bootstrap/cache/*.php
+/backend/database/database.sqlite
+/backend/database/database.sqlite-journal
+/backend/database/database.sqlite-wal
+/backend/database/database.sqlite-shm
+/backend/database/testing.sqlite
+/backend/database/testing.sqlite-journal
+/backend/database/testing.sqlite-wal
+/backend/database/testing.sqlite-shm
+
+# ---- Frontend (React + Vite) ----
+/frontend/node_modules
+/frontend/dist
+/frontend/.env.local
+/frontend/.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- Local tool state (not for the repo) ----
+/.claude/
+/.sixth/
+
+# ---- Editors / OS ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
