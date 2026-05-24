@@ -4,16 +4,17 @@ set -euo pipefail
 cd /var/www/html
 
 # Make sure runtime-writable paths exist + are owned by the FPM user.
+# /data is the persistent Fly volume mount (see fly.toml [[mounts]]).
 mkdir -p storage/framework/cache/data \
          storage/framework/sessions \
          storage/framework/views \
          storage/framework/testing \
          storage/logs \
          bootstrap/cache \
-         database
-touch database/database.sqlite
-chown -R www-data:www-data storage bootstrap/cache database
-chmod -R ug+rwX storage bootstrap/cache database
+         /data
+touch /data/database.sqlite
+chown -R www-data:www-data storage bootstrap/cache /data
+chmod -R ug+rwX storage bootstrap/cache /data
 
 # Refresh runtime config caches (secrets are injected via Fly secrets at boot,
 # so the config cache from build time would be stale).

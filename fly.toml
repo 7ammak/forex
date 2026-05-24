@@ -21,6 +21,9 @@ primary_region = 'fra'
 
 # Persistent SQLite — survives deploys. Volume created via:
 #   flyctl volumes create forex_data --region fra --size 1
+# Mounted at /data (NOT /var/www/html/database — that would shadow the
+# migrations/ and seeders/ directories that ship inside the image).
+# DB_DATABASE secret points at /data/database.sqlite.
 [[mounts]]
   source = "forex_data"
-  destination = "/var/www/html/database"
+  destination = "/data"
