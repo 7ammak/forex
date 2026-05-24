@@ -14,7 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->statefulApi();
+        // We authenticate via Sanctum bearer tokens only — no SPA cookie auth.
+        // statefulApi() would layer session+CSRF onto /api/* when the request
+        // matches SANCTUM_STATEFUL_DOMAINS (which defaults to APP_URL's host),
+        // causing 419 CSRF errors for our token-based clients. Leave it off.
 
         $middleware->alias([
             'active' => EnsureUserIsActive::class,
