@@ -102,9 +102,13 @@ export default function TradePage() {
   }, [selectedPair])
 
   // ---------- ticket math ----------
+  // The backend rounds the stake to 2dp before debiting (see TradeController),
+  // so we mirror that here. This guarantees the "After this stake" figure
+  // shown to the user equals the amount that will actually be debited.
   const parsedStake = useMemo(() => {
     const n = Number(stake)
-    return Number.isFinite(n) && n > 0 ? n : null
+    if (!Number.isFinite(n) || n <= 0) return null
+    return Math.round(n * 100) / 100
   }, [stake])
 
   const available = meQuery.data ? Number(meQuery.data.available_balance) : null

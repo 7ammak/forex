@@ -76,7 +76,14 @@ class TradeController extends Controller
             throw ValidationException::withMessages(['stake' => $e->getMessage()]);
         }
 
-        return response()->json(['data' => $trade->load('currencyPair')], 201);
+        // Return the trade alongside the freshly-debited balance so the client
+        // doesn't have to round-trip to /me for the update — the figure here
+        // is the exact balance after the stake was debited.
+        return response()->json([
+            'data' => $trade->load('currencyPair'),
+            'balance' => round((float) $this->ledger->balanceFor($user), 2),
+            'available_balance' => round((float) $this->ledger->availableBalance($user), 2),
+        ], 201);
     }
 
     public function show(Request $request, Trade $trade): JsonResponse

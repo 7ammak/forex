@@ -43,39 +43,52 @@ class TradeController extends Controller
 
     public function resolve(ResolveTradeRequest $request, Trade $trade): JsonResponse
     {
-        if ($trade->status !== 'open') {
-            throw ValidationException::withMessages([
-                'status' => ['This trade has already been resolved.'],
-            ]);
-        }
-
         $data = $request->validated();
         $outcome = $data['outcome'];
         $pnl = round((float) $data['pnl'], 2);
-        $stake = round((float) $trade->stake, 2);
-
-        if ($outcome === 'loss' && $pnl > $stake) {
-            throw ValidationException::withMessages([
-                'pnl' => ['Loss amount cannot exceed the original stake.'],
-            ]);
-        }
-
-        $payout = $outcome === 'win' ? ($stake + $pnl) : ($stake - $pnl);
-        $signedPnl = $outcome === 'win' ? $pnl : -$pnl;
         $admin = $request->user();
 
-        DB::transaction(function () use ($trade, $admin, $outcome, $signedPnl, $payout) {
+        DB::transaction(function () use ($trade, $admin, $outcome, $pnl) {
+            // Lock the trade row + re-check status INSIDE the transaction.
+            // Without this, two concurrent admin resolves could each pass the
+            // status check, both write a payout, and double-credit the user.
+            $fresh = Trade::query()
+                ->whereKey($trade->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($fresh->status !== 'open') {
+                throw ValidationException::withMessages([
+                    'status' => ['This trade has already been resolved.'],
+                ]);
+            }
+
+            $stake = round((float) $fresh->stake, 2);
+
+            if ($outcome === 'loss' && $pnl > $stake) {
+                throw ValidationException::withMessages([
+                    'pnl' => ['Loss amount cannot exceed the original stake.'],
+                ]);
+            }
+
+            // Win: stake refunded + profit credited. Loss: partial refund of
+            // (stake - loss). Full loss yields payout 0 — no credit written
+            // (the user lost the full stake at open time) but the trade still
+            // closes. The math floors at 0 so a payout can never go negative.
+            $payout = $outcome === 'win' ? ($stake + $pnl) : ($stake - $pnl);
+            $signedPnl = $outcome === 'win' ? $pnl : -$pnl;
+
             if ($payout > 0) {
                 $this->ledger->credit(
-                    $trade->user,
+                    $fresh->user,
                     'trade_payout',
                     $payout,
-                    "Payout for trade #{$trade->id}",
-                    $trade,
+                    "Payout for trade #{$fresh->id}",
+                    $fresh,
                 );
             }
 
-            $trade->update([
+            $fresh->update([
                 'status' => 'closed',
                 'outcome' => $outcome,
                 'pnl' => $signedPnl,
@@ -86,8 +99,8 @@ class TradeController extends Controller
             AuditLog::create([
                 'actor_id' => $admin->id,
                 'action' => 'trade.resolved',
-                'target_type' => $trade->getMorphClass(),
-                'target_id' => $trade->id,
+                'target_type' => $fresh->getMorphClass(),
+                'target_id' => $fresh->id,
                 'meta' => [
                     'outcome' => $outcome,
                     'pnl' => $signedPnl,
